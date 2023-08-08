@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Limbo - Game Verification Script</title>
+    <link rel="stylesheet" href="./styles/bootstrap.min.css" />
+    <script src="./scripts/vue.min.js"></script>
+    <script src="./scripts/crypto-js.js"></script>
+    <style>
+      body {
+        overflow-y: scroll;
+      }
+      .main {
+        max-width: 800px;
+        width: 100%;
+        margin: 50px auto;
+        padding: 0 10px;
+        box-sizing: border-box;
+      }
+      .success {
+        background-color: rgba(0,255,0,0.3);
+      }
+      .error {
+        background-color: rgba(255,0,0,0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="main">
+      <h1 class="text-center mb-4">Limbo - Game Verification Script</h1>
+
+      <hr />
+
+      <form class="my-5">
+        <h2 class="text-center">Input</h2>
+
+        <div class="mb-3">
+          <label class="form-label" for="client-seed">Client seed</label>
+          <input id="client-seed" placeholder="Client seed" v-model="clientSeed" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="server-seed">Server seed</label>
+          <input id="server-seed" placeholder="Server seed" v-model="serverSeed" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="nonce">Nonce</label>
+          <input id="nonce" placeholder="Nonce" v-model="nonce" class="form-control" />
+        </div>
+      </form>
+
+      <div v-if="isOutputShowed">
+        <form class="my-5">
+          <h2 class="text-center mb-4">Output</h2>
+
+          <div class="mb-3">
+            <label class="form-label">sha256 (result)</label>
+            <input
+              :value="resultHash"
+              readonly="readonly"
+              class="form-control"
+              v-bind:class="{success: resultHash == verification, error: resultHash != verification}"
+            />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">sha256 (server seed)</label>
+            <input
+              :value="calculatedServerSeedHash"
+              readonly="readonly"
+              class="form-control"
+              v-bind:class="{success: calculatedServerSeedHash == serverSeedHash, error: calculatedServerSeedHash != serverSeedHash}"
+            />
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const SALT = 'qwerty123'
+
+      function queryString() {
+        return window.location.search
+          .replace("?", "")
+          .split("&")
+          .reduce(function (res, item) {
+            let kv = item.split("=");
+            res[kv[0]] = kv[1];
+            return res;
+          }, {});
+      }
+
+      const qs = queryString();
+
+      const app = Vue.createApp({
+        data() {
+          return {
+            clientSeed: qs.c || "",
+            serverSeed: qs.s || "",
+            serverSeedHash: qs.h || "",
+            nonce: qs.n || "",
+            verification: qs.v || "",
+          };
+        },
+        computed: {
+          isOutputShowed() {
+            return this.clientSeed && this.serverSeed && this.nonce;
+          },
+          resultHash() {
+            return CryptoJS.SHA256(this.serverSeed + this.clientSeed + this.nonce);
+          },
+          calculatedServerSeedHash() {
+            return CryptoJS.SHA256(this.serverSeed + SALT);
+          },
+        },
+        methods: {
+          parseInt(value) {
+            return window.parseInt(value, 16);
+          },
+        },
+      });
+
+      app.mount("#app");
+    </script>
+  </body>
+</html>
