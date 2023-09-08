@@ -186,6 +186,24 @@
     </section>
     <script>
       var isVerifying = false;
+      var hash_url = window.location.search;
+      const query = new URLSearchParams(location.search);
+      const salt = query.get("salt");
+      const serverSeed = query.get("serverSeed");
+
+      if (serverSeed) {
+        $("#server_seed_input").val(serverSeed);
+      }
+
+      if (salt) {
+        $("#game_salt_input").val(salt);
+      }
+
+      if (/hash=/.test(hash_url)) {
+        var hash = hash_url.match(/hash=[0-9a-zA-z]+/)[0].replace(/hash=/, "");
+        $("#game_hash_input").val(hash);
+        $("#game_verify_submit").click();
+      }
 
       $("#game_verify_submit").on("click", () => {
         if (isVerifying) {
@@ -277,6 +295,7 @@
 
       const gameResult = (seed, salt) => {
         const nBits = 52; // number of most significant bits to use
+        const rtp = query.get("rtp");
 
         // 1. r = 52 most significant bits
         seed = seed.slice(0, nBits / 4);
@@ -286,14 +305,15 @@
         let X = r / Math.pow(2, nBits); // uniformly distributed in [0; 1)
         X = parseFloat(X.toPrecision(9));
 
-        // 3. X = 99 / (1-X)
-        X = 99 / (1 - X);
+        // 3. X = rtp / (1-X)
+        X = rtp / (1 - X);
 
         // 4. return max(trunc(X), 100)
         const result = Math.floor(X);
 
         return Math.max(1, result / 100);
       };
+
       $.fn.appendToWithIndex = function (to, index) {
         if (!to instanceof jQuery) {
           to = $(to);
@@ -305,25 +325,6 @@
           $(this).insertAfter(to.children().eq(index - 1));
         }
       };
-
-      var hash_url = window.location.search;
-      const query = new URLSearchParams(location.search);
-      const salt = query.get("salt");
-      const serverSeed = query.get("serverSeed");
-
-      if (serverSeed) {
-        $("#server_seed_input").val(serverSeed);
-      }
-
-      if (salt) {
-        $("#game_salt_input").val(salt);
-      }
-
-      if (/hash=/.test(hash_url)) {
-        var hash = hash_url.match(/hash=[0-9a-zA-z]+/)[0].replace(/hash=/, "");
-        $("#game_hash_input").val(hash);
-        $("#game_verify_submit").click();
-      }
     </script>
 
     <script>
