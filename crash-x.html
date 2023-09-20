@@ -190,6 +190,7 @@
       const query = new URLSearchParams(location.search);
       const salt = query.get("salt");
       const serverSeed = query.get("serverSeed");
+      const maxSpinCoef = query.get("msc");
 
       if (serverSeed) {
         $("#server_seed_input").val(serverSeed);
@@ -237,6 +238,8 @@
           }
 
           let bust = gameResult(hash);
+
+          bust = bust > maxSpinCoef ? maxSpinCoef : bust;
 
           setTimeout(function () {
             addTableRow(hash, bust, i);
