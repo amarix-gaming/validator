@@ -173,7 +173,7 @@
                 let hash = this.resultHash
 
                 for (let i = 0; i < this.minesCount; i++) {
-                    hash = hash.substring(1) + hash.charAt(0) + hash.charAt(1)
+                    hash = hash.substring(2) + hash.charAt(0) + hash.charAt(1)
 
                     const first8 = hash.substring(0, 8)
                     const int32 = parseInt(first8, 16);
