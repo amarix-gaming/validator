@@ -20,16 +20,16 @@
         box-sizing: border-box;
       }
       .success {
-        background-color: rgba(0,255,0,0.3);
+        background-color: rgba(0, 255, 0, 0.3);
       }
       .error {
-        background-color: rgba(255,0,0,0.3);
+        background-color: rgba(255, 0, 0, 0.3);
       }
     </style>
   </head>
   <body>
     <div id="app" class="main">
-      <h1 class="text-center mb-4">Plinko - Game Verification Script</h1>
+      <h1 class="text-center mb-4">{{game}} - Game Verification Script</h1>
 
       <hr />
 
@@ -117,7 +117,7 @@
     <script>
       const MIN_ROWS = 8;
       const MAX_LEFT_VALUE = 7;
-      const SALT = 'plinko-2ec44945-1da5-45d8-b759-6570d310b26f'
+      const SALT = "plinko-2ec44945-1da5-45d8-b759-6570d310b26f";
 
       function queryString() {
         return window.location.search
@@ -141,6 +141,7 @@
             rows: qs.r || MIN_ROWS,
             nonce: qs.n || "",
             verification: qs.v || "",
+            game: qs.game || "Plinko",
           };
         },
         computed: {
@@ -174,6 +175,9 @@
           parseInt(value) {
             return window.parseInt(value, 16);
           },
+        },
+        beforeMount() {
+          document.title = this.game + " - " + "Game Verification Script";
         },
       });
 
