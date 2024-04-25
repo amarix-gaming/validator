@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Mines - Game Verification Script</title>
+    <link rel="stylesheet" href="./styles/bootstrap.min.css" />
+    <script src="./scripts/vue.min.js"></script>
+    <script src="./scripts/crypto-js.js"></script>
+    <script src="./scripts/decimal.js"></script>
+    <style>
+        body {
+            overflow-y: scroll;
+        }
+        .main {
+            max-width: 800px;
+            width: 100%;
+            margin: 50px auto;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+        .success {
+            background-color: rgba(0,255,0,0.3);
+        }
+        .error {
+            background-color: rgba(255,0,0,0.3);
+        }
+
+        .grid {
+            margin: auto;
+            display: grid;
+            gap: 6px;
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        .grid > div {
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            border-radius: 50%;
+            background: lightgray;
+            margin: auto;
+        }
+
+        .grid > div.mine {
+            background: orange;
+        }
+    </style>
+</head>
+<body>
+<div id="app" class="main">
+    <h1 class="text-center mb-4">Mines - Game Verification Script v1</h1>
+
+    <hr />
+
+    <form class="my-5">
+        <h2 class="text-center">Input</h2>
+
+        <div class="mb-3">
+            <label class="form-label" for="mines">Mines count</label>
+            <input id="mines" placeholder="Mines count" v-model="minesCount" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="client-seed">Client seed</label>
+            <input id="client-seed" placeholder="Client seed" v-model="clientSeed" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="server-seed">Server seed</label>
+            <input id="server-seed" placeholder="Server seed" v-model="serverSeed" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="nonce">Nonce</label>
+            <input id="nonce" placeholder="Nonce" v-model="nonce" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="salt">Salt</label>
+            <input id="salt" placeholder="Salt" v-model="salt" class="form-control" />
+        </div>
+    </form>
+
+    <div v-if="isOutputShowed">
+        <form class="my-5">
+            <h2 class="text-center mb-4">Output</h2>
+
+            <div class="mb-3">
+                <label class="form-label">sha256 (result)</label>
+                <input
+                    :value="calculatedResultHash"
+                    readonly="readonly"
+                    class="form-control"
+                    v-bind:class="{success: calculatedResultHash == resultHash, error: calculatedResultHash != resultHash}"
+                />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">sha256 (server seed)</label>
+                <input
+                    :value="calculatedServerSeedHash"
+                    readonly="readonly"
+                    class="form-control"
+                    v-bind:class="{success: calculatedServerSeedHash == serverSeedHash, error: calculatedServerSeedHash != serverSeedHash}"
+                />
+            </div>
+        </form>
+
+        <div class="my-5">
+            <h2 class="text-center mb-4">Results</h2>
+
+            <div class="grid">
+                <div
+                    v-for="(isDiamond, index) in mines"
+                    :key="index"
+                    :class="isDiamond ? '' : 'mine'"
+                >{{Number(index) + 1}}</div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const CELLS_COUNT = 25;
+    function queryString() {
+        return window.location.search
+            .replace("?", "")
+            .split("&")
+            .reduce(function (res, item) {
+                let kv = item.split("=");
+                res[kv[0]] = kv[1];
+                return res;
+            }, {});
+    }
+
+    const qs = queryString();
+
+    const app = Vue.createApp({
+        data() {
+            return {
+                clientSeed: qs.c || "",
+                serverSeed: qs.s || "",
+                serverSeedHash: qs.h || "",
+                resultHash: qs.r || "",
+                nonce: qs.n || "",
+                salt: qs.sl || "",
+                minesCount: qs.m || "",
+            };
+        },
+        computed: {
+            isOutputShowed() {
+                return this.clientSeed && this.serverSeed && (this.nonce !== "") && this.salt && this.minesCount;
+            },
+            calculatedResultHash() {
+                return CryptoJS.SHA256(this.serverSeed + this.clientSeed + this.nonce);
+            },
+            calculatedServerSeedHash() {
+                return CryptoJS.SHA256(this.serverSeed + this.salt);
+            },
+            mines: function () {
+                if (!this.isOutputShowed) {
+                    return {}
+                }
+
+                let freeCells = []
+
+                for (let i = 0; i < CELLS_COUNT; i++) {
+                    freeCells.push(i)
+                }
+
+                let hash = this.resultHash
+
+                if (hash.length < 120) {
+                  hash += CryptoJS.SHA256(hash).toString(CryptoJS.enc.Hex)
+                }
+
+                for (let i = 0; i < this.minesCount; i++) {
+                    const first5 = hash.substring(0, 5)
+                    const int32 = parseInt(first5, 16);
+                    const divider = new Decimal(0x100000);
+
+                  const distributor = new Decimal(int32).dividedBy(divider).toFixed(20, Decimal.ROUND_FLOOR);
+                  const cell = Math.floor(new Decimal(distributor).times(freeCells.length).toNumber());
+
+                  freeCells.splice(cell, 1);
+
+                  hash = hash.substring(5);
+                }
+
+                const result = {}
+
+                for (let i = 0; i < 25; i++) {
+                    result[i] = freeCells.includes(i);
+                }
+
+                return result
+            },
+        },
+        methods: {
+            parseInt(value) {
+                return window.parseInt(value, 16);
+            },
+        },
+    });
+
+    app.mount("#app");
+</script>
+</body>
+</html>
