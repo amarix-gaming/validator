@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Ronin - Game Verification Script</title>
+    <link rel="stylesheet" href="./styles/bootstrap.min.css" />
+    <script src="./scripts/vue.min.js"></script>
+    <script src="./scripts/crypto-js.js"></script>
+    <script src="./scripts/decimal.js"></script>
+    <style>
+      body {
+        overflow-y: scroll;
+      }
+      .main {
+        max-width: 800px;
+        width: 100%;
+        margin: 50px auto;
+        padding: 0 10px;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="main">
+      <h1 class="text-center mb-4">Ronin - Game Verification Script</h1>
+
+      <hr />
+
+      <h2 class="text-center">Input</h2>
+
+      <form class="my-5">
+        <div class="mb-3">
+          <label class="form-label" for="server-seed">Server seed</label>
+          <input id="server-seed" placeholder="Server seed" v-model="serverSeed" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="client-seed">Client seed</label>
+          <input id="client-seed" placeholder="Client seed" v-model="clientSeed" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="nonce">Nonce</label>
+          <input id="nonce" placeholder="Nonce" v-model="nonce" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="rounds">Rounds</label>
+          <input id="rounds" placeholder="Rounds" v-model="rounds" class="form-control" />
+        </div>
+      </form>
+
+      <div v-if="isOutputShowed">
+        <form class="my-5">
+          <h2 class="text-center mb-4">Output</h2>
+
+          <div v-for="round in +rounds" :key="round" class="mb-4">
+            <p class="mb-2"><strong>Round: {{round}}</strong></p>
+            <div class="mb-2">
+              <label class="form-label">HMAC_SHA256(client_seed:nonce:round, server_seed)</label>
+              <input
+                :value="getRoundHash(round)"
+                readonly="readonly"
+                class="form-control"
+              />
+            </div>
+            <p class="m-0"><strong class="text-success">Result: {{calcRoundResult(round)}}</strong></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      function queryString() {
+        return window.location.search
+          .replace("?", "")
+          .split("&")
+          .reduce(function (res, item) {
+            let kv = item.split("=");
+            res[kv[0]] = kv[1];
+            return res;
+          }, {});
+      }
+
+      const qs = queryString();
+
+      const app = Vue.createApp({
+        data() {
+          return {
+            clientSeed: qs.c || "",
+            serverSeed: qs.s || "",
+            nonce: qs.n || "",
+            rounds: qs.r || "",
+          };
+        },
+        computed: {
+          isOutputShowed() {
+            return this.clientSeed && this.serverSeed && this.nonce && this.rounds;
+          },
+        },
+        methods: {
+          getRoundHash(round) {
+            return CryptoJS.HmacSHA256(`${this.clientSeed}:${this.nonce}:${round}`, this.serverSeed).toString();
+          },
+          calcRoundResult(round) {
+            const first8 = this.getRoundHash(round).substring(0, 8);
+            const int32 = parseInt(first8, 16);
+            const resultDecimal = new Decimal(int32).dividedBy(0x100000000).times(2);
+
+            return Math.floor(resultDecimal);
+          }
+        }
+      });
+
+      app.mount("#app");
+    </script>
+  </body>
+</html>
