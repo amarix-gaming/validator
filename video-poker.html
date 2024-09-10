@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Video Poker - Game Verification Script</title>
+    <link rel="stylesheet" href="./styles/bootstrap.min.css" />
+    <script src="./scripts/vue.min.js"></script>
+    <script src="./scripts/crypto-js.js"></script>
+    <style>
+      body {
+        overflow-y: scroll;
+      }
+      .main {
+        max-width: 800px;
+        width: 100%;
+        margin: 50px auto;
+        padding: 0 10px;
+        box-sizing: border-box;
+      }
+      .success {
+        background-color: rgba(0, 255, 0, 0.3);
+      }
+      .error {
+        background-color: rgba(255, 0, 0, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="main">
+      <h1 class="text-center mb-4">Video Poker - Game Verification Script</h1>
+
+      <hr />
+
+      <form class="my-5">
+        <h2 class="text-center">Input</h2>
+
+        <div class="mb-3">
+          <label class="form-label" for="client-seed">Client seed</label>
+          <input
+            id="client-seed"
+            placeholder="Client seed"
+            v-model="clientSeed"
+            class="form-control"
+          />
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="server-seed">Server seed</label>
+          <input
+            id="server-seed"
+            placeholder="Server seed"
+            v-model="serverSeed"
+            class="form-control"
+          />
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="nonce">Nonce</label>
+          <input
+            id="nonce"
+            placeholder="Nonce"
+            v-model="nonce"
+            class="form-control"
+          />
+        </div>
+      </form>
+
+      <div v-if="isOutputShowed">
+        <form class="my-5">
+          <h2 class="text-center mb-4">Output</h2>
+
+          <div class="mb-3">
+            <label class="form-label">sha256 (result)</label>
+            <input
+              :value="resultHash"
+              readonly="readonly"
+              class="form-control"
+              v-bind:class="{success: resultHash == verification, error: resultHash != verification}"
+            />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">sha256 (server seed)</label>
+            <input
+              :value="calculatedServerSeedHash"
+              readonly="readonly"
+              class="form-control"
+              v-bind:class="{success: calculatedServerSeedHash == serverSeedHash, error: calculatedServerSeedHash != serverSeedHash}"
+            />
+          </div>
+        </form>
+
+        <div class="my-5">
+          <h2 class="text-center mb-4">Results</h2>
+          <div class="row mb-4">
+            <div class="col-6">
+              <h3 class="mb-0">First deal</h3>
+              <div class="display-1">
+                {{progressCards}}
+              </div>
+            </div>
+            <div class="col-6">
+              <h3 class="mb-0">Second deal</h3>
+              <div class="display-1">
+                {{resultCards}}
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-12 mt-15">
+            <h3 class="mb-0">Shuffled deck</h3>
+            <div class="display-1">
+              {{shuffledCards}}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const SALT = "video-poker-a8fcbe86-ad26-439f-bed9-1728234166e4";
+
+      function queryString() {
+        return window.location.search
+          .replace("?", "")
+          .split("&")
+          .reduce(function (res, item) {
+            let kv = item.split("=");
+            res[kv[0]] = kv[1];
+            return res;
+          }, {});
+      }
+
+      const qs = queryString();
+
+      const app = Vue.createApp({
+        data() {
+          return {
+            clientSeed: qs.c || "",
+            serverSeed: qs.s || "",
+            serverSeedHash: qs.h || "",
+            nonce: qs.n || "",
+            verification: qs.v || "",
+            progressData: qs.p || "",
+            resultData: qs.r || "",
+            cards: "🂡🂢🂣🂤🂥🂦🂧🂨🂩🂪🂫🂭🂮🃑🃒🃓🃔🃕🃖🃗🃘🃙🃚🃛🃝🃞🃁🃂🃃🃄🃅🃆🃇🃈🃉🃊🃋🃍🃎🂱🂲🂳🂴🂵🂶🂷🂸🂹🂺🂻🂽🂾",
+            beginIndex: 0,
+            extendedHash: qs.v || "",
+            cardsTextCodeMap: {
+              'AS': '🂡',
+              '2S': '🂢',
+              '3S': '🂣',
+              '4S': '🂤',
+              '5S': '🂥',
+              '6S': '🂦',
+              '7S': '🂧',
+              '8S': '🂨',
+              '9S': '🂩',
+              '0S': '🂪',
+              'JS': '🂫',
+              'QS': '🂭',
+              'KS': '🂮',
+              'AC': '🃑',
+              '2C': '🃒',
+              '3C': '🃓',
+              '4C': '🃔',
+              '5C': '🃕',
+              '6C': '🃖',
+              '7C': '🃗',
+              '8C': '🃘',
+              '9C': '🃙',
+              '0C': '🃚',
+              'JC': '🃛',
+              'QC': '🃝',
+              'KC': '🃞',
+              'AD': '🃁',
+              '2D': '🃂',
+              '3D': '🃃',
+              '4D': '🃄',
+              '5D': '🃅',
+              '6D': '🃆',
+              '7D': '🃇',
+              '8D': '🃈',
+              '9D': '🃉',
+              '0D': '🃊',
+              'JD': '🃋',
+              'QD': '🃍',
+              'KD': '🃎',
+              'AH': '🂱',
+              '2H': '🂲',
+              '3H': '🂳',
+              '4H': '🂴',
+              '5H': '🂵',
+              '6H': '🂶',
+              '7H': '🂷',
+              '8H': '🂸',
+              '9H': '🂹',
+              '0H': '🂺',
+              'JH': '🂻',
+              'QH': '🂽',
+              'KH': '🂾',
+            }
+          };
+        },
+        computed: {
+          isOutputShowed() {
+            return this.clientSeed && this.serverSeed && this.nonce;
+          },
+          resultHash() {
+            return CryptoJS.SHA256(
+              this.serverSeed + this.clientSeed + this.nonce
+            );
+          },
+          calculatedServerSeedHash() {
+            return CryptoJS.SHA256(this.serverSeed + SALT);
+          },
+          progressCards() {
+            return this.progressData.match(/.{1,2}/g)?.map((code) => this.cardsTextCodeMap[code]).join("");
+          },
+          resultCards() {
+            return this.resultData.match(/.{1,2}/g)?.map((code) => this.cardsTextCodeMap[code]).join("");
+          },
+          shuffledCards() {
+            const shuffled = this.getCards(this.resultHash)
+            return shuffled;
+          }
+        },
+        methods: {
+          parseInt(value) {
+            return window.parseInt(value, 16);
+          },
+          getCards() {
+            let arr = Array.from(this.cards);
+            this.shuffle(arr);
+            return arr.join("");
+          },
+
+          // Pseudo-random number generator (based on the hash)
+          nextInt(bound) {
+            const symbolsPerResult = Math.ceil(
+              Math.log(bound * 10000) / Math.log(16)
+            );
+            const divider = BigInt(1) << BigInt(symbolsPerResult * 4);
+
+            const endIndex = this.beginIndex + symbolsPerResult;
+            if (endIndex > this.extendedHash.length) {
+              this.extendedHash += CryptoJS.SHA256(this.extendedHash);
+            }
+
+            const substring = this.extendedHash.substring(
+              this.beginIndex,
+              endIndex
+            );
+            this.beginIndex = endIndex;
+            const randomNumber = BigInt("0x" + substring);
+            const result = (randomNumber * BigInt(bound)) / divider;
+            return Number(result);
+          },
+
+          // Shuffle algorithm
+          shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+              let j = this.nextInt(i + 1);
+              [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+          },
+        },
+      });
+
+      app.mount("#app");
+    </script>
+  </body>
+</html>
